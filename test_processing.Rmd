@@ -1,0 +1,211 @@
+---
+title: "Processing BHRC data (test)"
+author: "Gabriele Jobim"
+date: "2023-11-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Settings
+
+```{r}
+# setwd("C:/Users/gabri/Documents/mheg_mfq_clinical")
+
+# Loading packages
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(dplyr)
+library(knitr)
+library(sjPlot)
+
+# BHRC Dictionary
+bhrc_dictionary <- read_excel("data/bhrc_dictionary.xlsx")
+
+# Loading .Rds databases
+test_database <- readRDS("data/test_BHRCS_Clinical_Scales_Project_all.Rds")
+test_database_mfq <- readRDS("data/Loneliness_Depression_data.Rds")
+
+```
+
+## Replacing missing MFQ data
+
+```{r}
+## Selecting wave==3 (n=2511)
+test_database <- test_database[test_database$wave == "3", ]
+
+## Selecting MFQ data | NOT AVAILABLE 
+head(
+  select(test_database, p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13, p_mfqtot)
+)
+
+## Replacing missing MFQ data
+
+# Selecting wave==3 (n=2511)
+test_database_mfq <- test_database_mfq[test_database_mfq$wave == "3", ]
+test_database_mfq <- test_database_mfq %>%
+  select(ident, p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13)
+test_database <- test_database %>%
+  select(-p_mfq1, -p_mfq2, -p_mfq3, -p_mfq4, -p_mfq5, -p_mfq6, -p_mfq7, -p_mfq8, -p_mfq9, -p_mfq10, -p_mfq11, -p_mfq12, -p_mfq13)
+
+# Joining by ident
+bhrc_database <- left_join(test_database, test_database_mfq, by="ident")
+
+# SCARED, SDQ, CBCL are fine
+```
+
+## Manipulating database
+
+### Converting into factors
+
+```{r}
+# Converting into factors
+colnames(bhrc_database)
+bhrc_database$Gender <- as_factor(bhrc_database$Gender)
+bhrc_database$Selection <- as_factor(bhrc_database$Selection)
+bhrc_database$Site <- as_factor(bhrc_database$Site)
+bhrc_database$Age_group_3cat <- as_factor(bhrc_database$Age_group_3cat)
+bhrc_database$Age_group_adult <- as_factor(bhrc_database$Age_group_adult)
+bhrc_database$Age_group_2cat <- as_factor(bhrc_database$Age_group_2cat)
+bhrc_database$minstlevel_4cat <- as_factor(bhrc_database$minstlevel_4cat)
+
+bhrc_database$School_repet <- as_factor(bhrc_database$School_repet)
+bhrc_database$School_exp <- as_factor(bhrc_database$School_exp)
+bhrc_database$School_drop <- as_factor(bhrc_database$School_drop)
+bhrc_database$School_evasion <- as_factor(bhrc_database$School_evasion)
+bhrc_database$School_susp <- as_factor(bhrc_database$School_susp)
+bhrc_database$Studying <- as_factor(bhrc_database$Studying)
+bhrc_database$Educ_level_current <- as_factor(bhrc_database$Educ_level_current)
+bhrc_database$Educ_attainment <- as_factor(bhrc_database$Educ_attainment)
+
+bhrc_database$work_bin <- as_factor(bhrc_database$work_bin)
+bhrc_database$NEET_all <- as_factor(bhrc_database$NEET_all)
+bhrc_database$NEET_15 <- as_factor(bhrc_database$NEET_15)
+
+bhrc_database$IQ_group <- as_factor(bhrc_database$IQ_group)
+bhrc_database$BMI_cat <- as_factor(bhrc_database$BMI_cat)
+
+bhrc_database$instlevel <- as_factor(bhrc_database$instlevel)
+bhrc_database$minstlevel <- as_factor(bhrc_database$minstlevel)
+bhrc_database$finstlevel <- as_factor(bhrc_database$finstlevel)
+bhrc_database$work <- as_factor(bhrc_database$work)
+bhrc_database$moccupation <- as_factor(bhrc_database$moccupation)
+bhrc_database$foccupation <- as_factor(bhrc_database$foccupation)
+
+bhrc_database$Assistance_any <- as_factor(bhrc_database$Assistance_any)
+bhrc_database$Assistance_type <- as_factor(bhrc_database$Assistance_type)
+bhrc_database$Assistance_cash_transfer <- as_factor(bhrc_database$Assistance_cash_transfer)
+bhrc_database$reg39b <- as_factor(bhrc_database$reg39b)
+
+bhrc_database$Conviction <- as_factor(bhrc_database$Conviction)
+
+bhrc_database$abepstrat <- as_factor(bhrc_database$abepstrat)
+
+bhrc_database$med_lifetime <- as_factor(bhrc_database$med_lifetime)
+bhrc_database$med_current <- as_factor(bhrc_database$med_current)
+bhrc_database$Current_substance_use <- as_factor(bhrc_database$Current_substance_use)
+
+bhrc_database$Service_Emergency_ever <- as_factor(bhrc_database$Service_Emergency_ever)
+bhrc_database$Service_Psych_admission <- as_factor(bhrc_database$Service_Psych_admission)
+bhrc_database$Service_Psych_admission_last_year <- as_factor(bhrc_database$Service_Psych_admission_last_year)
+
+# Columns 129 to 136: WE1 até WE-Total
+# Columns 141 to 151: DSH1 até DSH11
+
+bhrc_database$Self_harm_any <- as_factor(bhrc_database$Self_harm_any)
+bhrc_database$Self_harm_needed_care <- as_factor(bhrc_database$Self_harm_needed_care)
+bhrc_database$Pregnant_ever <- as_factor(bhrc_database$Pregnant_ever)
+
+bhrc_database$DIAG_ANY <- as_factor(bhrc_database$DIAG_ANY)
+bhrc_database$DIAG_SEP_ANX <- as_factor(bhrc_database$DIAG_SEP_ANX)
+bhrc_database$DIAG_SPEC_PHOB <- as_factor(bhrc_database$DIAG_SPEC_PHOB)
+bhrc_database$DIAG_SOC_PHOB <- as_factor(bhrc_database$DIAG_SOC_PHOB)
+bhrc_database$DIAG_PANIC <- as_factor(bhrc_database$DIAG_PANIC)
+bhrc_database$DIAG_AGORAPHOB <- as_factor(bhrc_database$DIAG_AGORAPHOB)
+bhrc_database$DIAG_PTSD <- as_factor(bhrc_database$DIAG_PTSD)
+bhrc_database$DIAG_OCD <- as_factor(bhrc_database$DIAG_OCD)
+bhrc_database$DIAG_GEN_ANX <- as_factor(bhrc_database$DIAG_GEN_ANX)
+bhrc_database$DIAG_Other_ANX <- as_factor(bhrc_database$DIAG_Other_ANX)
+bhrc_database$DIAG_DMDD <- as_factor(bhrc_database$DIAG_DMDD)
+bhrc_database$DIAG_INHAT <- as_factor(bhrc_database$DIAG_INHAT)
+bhrc_database$DIAG_DEP <- as_factor(bhrc_database$DIAG_DEP)
+bhrc_database$DIAG_MANIA <- as_factor(bhrc_database$DIAG_MANIA)
+bhrc_database$DIAG_ADHD <- as_factor(bhrc_database$DIAG_ADHD)
+bhrc_database$DIAG_CD <- as_factor(bhrc_database$DIAG_CD)
+bhrc_database$DIAG_ODD <- as_factor(bhrc_database$DIAG_ODD)
+bhrc_database$DIAG_EAT <- as_factor(bhrc_database$DIAG_EAT)
+bhrc_database$DIAG_AUTISM <- as_factor(bhrc_database$DIAG_AUTISM)
+bhrc_database$DIAG_TIC <- as_factor(bhrc_database$DIAG_TIC)
+bhrc_database$DIAG_PSYCH <- as_factor(bhrc_database$DIAG_PSYCH)
+
+# Columns 176:185 - Broad_... (already factors)
+
+bhrc_database$dummy_DIAG_comorbid <- as_factor(bhrc_database$dummy_DIAG_comorbid)
+bhrc_database$dummy_Broad_comorbid <- as_factor(bhrc_database$dummy_Broad_comorbid)
+
+# Columns 190:195 - pSDQ (short version)
+# Columns 202-207 - sSDQ (short version)
+# Columns 208 to 340 - ABCL (already factors)
+# Columns 341 to 461 - CBCL (already factors)
+
+bhrc_database$Dead <- as_factor(bhrc_database$Dead)
+bhrc_database$Death_cause <- as_factor(bhrc_database$Death_cause)
+bhrc_database$Suicide_selfharm_current <- as_factor(bhrc_database$Suicide_selfharm_current)
+bhrc_database$Suicide_selfharm_lifetime <- as_factor(bhrc_database$Suicide_selfharm_lifetime)
+bhrc_database$Suicide_thought_current_parent_report <- as_factor(bhrc_database$Suicide_thought_current_parent_report)
+bhrc_database$Suicide_talk_current_parent_report <- as_factor(bhrc_database$Suicide_talk_current_parent_report)
+bhrc_database$Suicide_selfharm_current_parent_report <- as_factor(bhrc_database$Suicide_selfharm_current_parent_report)
+bhrc_database$Suicide_selfharm_lifetime_parent_report <- as_factor(bhrc_database$Suicide_selfharm_lifetime_parent_report)
+bhrc_database$Suicide_thought_current_self_report <- as_factor(bhrc_database$Suicide_thought_current_self_report)
+bhrc_database$Suicide_talk_current_self_report <- as_factor(bhrc_database$Suicide_talk_current_self_report)
+bhrc_database$Suicide_selfharm_current_self_report <- as_factor(bhrc_database$Suicide_selfharm_current_self_report)
+bhrc_database$Suicide_selfharm_lifetime_self_report <- as_factor(bhrc_database$Suicide_selfharm_lifetime_self_report)
+
+# Columns 476:491 - CBCL scores and DAWBA/CBCL categories (already factors)
+# Columns 492:495 - DAWBA/CBCL classifications (already factors)
+
+bhrc_database$Suicide_severe_dsh_self <- as_factor(bhrc_database$Suicide_severe_dsh_self)
+bhrc_database$Any_lifethreatening_outcome <- as_factor(bhrc_database$Any_lifethreatening_outcome)
+bhrc_database$AUDIT_cat <- as_factor(bhrc_database$AUDIT_cat)
+bhrc_database$Substance_lastyear <- as_factor(bhrc_database$Substance_lastyear)
+bhrc_database$Any_poorLC_outcome <- as_factor(bhrc_database$Any_poorLC_outcome)
+bhrc_database$Pregnant_adolesc <- as_factor(bhrc_database$Pregnant_adolesc)
+bhrc_database$Substance_illegal_lastyear <- as_factor(bhrc_database$Substance_illegal_lastyear)
+
+bhrc_database$WE_Total_bin_5 <- as_factor(bhrc_database$WE_Total_bin_5)
+bhrc_database$WE_Total_bin_10 <- as_factor(bhrc_database$WE_Total_bin_10)
+bhrc_database$pSDQ_Impact_bin_5 <- as_factor(bhrc_database$pSDQ_Impact_bin_5)
+bhrc_database$pSDQ_Impact_bin_10 <- as_factor(bhrc_database$pSDQ_Impact_bin_10)
+
+bhrc_database$Missing_LT <- as_factor(bhrc_database$Missing_LT)
+bhrc_database$Missing_LC <- as_factor(bhrc_database$Missing_LC)
+
+# p_mfqtot = sum later
+
+# Columns 517-557 - SCARED items
+# Columns 558-599 - Parent SDQ items 
+# Columns 600-637 - Teacher SDQ items 
+# Columns 638-677 - Self-report SDQ items 
+# Columns 678-690 - MFQ items 
+```
+
+### Dropping columns
+
+```{r}
+
+# Dropping empty columns
+test_database <- test_database %>%
+    select(-ExecDisf_p10, -Income_others, -Birth_preg_dur, -gestagec, -birthweight, -Birth_premature, -Birth_delivery, -gsmoke_levc, -gdrink_levc, -breastf_levc, -prematurity_levc, -Maternal_DIAG_ANY, -tSDQ_Emo, -tSDQ_Con, -tSDQ_Hyp, -tSDQ_Peer, -tSDQ_Prosoc, -tSDQ_Impact, -Missing_w1, -Missing_w2)
+
+# Columns 68 to 125 - parent substance use 
+test_database <- test_database %>%
+    select(-p_alcohol_age:-p_amphet_year)
+
+# Columns not being used
+test_database <- test_database %>%
+    select(-wm_fl, -ic_fl, -tp_fl, -ef_fl)
+
+```
