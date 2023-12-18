@@ -49,10 +49,15 @@ test_database_mfq <- test_database_mfq[test_database_mfq$wave == "3", ]
 test_database_mfq <- test_database_mfq %>%
   select(ident, p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13)
 test_database <- test_database %>%
-  select(-p_mfq1, -p_mfq2, -p_mfq3, -p_mfq4, -p_mfq5, -p_mfq6, -p_mfq7, -p_mfq8, -p_mfq9, -p_mfq10, -p_mfq11, -p_mfq12, -p_mfq13)
+  select(-p_mfq1, -p_mfq2, -p_mfq3, -p_mfq4, -p_mfq5, -p_mfq6, -p_mfq7, -p_mfq8, -p_mfq9, -p_mfq10, -p_mfq11, -p_mfq12, -p_mfq13, -p_mfqtot)
 
 # Joining by ident
 bhrc_database <- left_join(test_database, test_database_mfq, by="ident")
+
+bhrc_database <- bhrc_database |> 
+  mutate(across(p_mfq1:p_mfq13, as.numeric)) |> 
+  rowwise() |> 
+  mutate(p_mfqtot = sum(c(p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13)))
 
 # SCARED, SDQ, CBCL are fine
 ```
@@ -197,15 +202,15 @@ bhrc_database$Missing_LC <- as_factor(bhrc_database$Missing_LC)
 ```{r}
 
 # Dropping empty columns
-test_database <- test_database %>%
-    select(-ExecDisf_p10, -Income_others, -Birth_preg_dur, -gestagec, -birthweight, -Birth_premature, -Birth_delivery, -gsmoke_levc, -gdrink_levc, -breastf_levc, -prematurity_levc, -Maternal_DIAG_ANY, -tSDQ_Emo, -tSDQ_Con, -tSDQ_Hyp, -tSDQ_Peer, -tSDQ_Prosoc, -tSDQ_Impact, -Missing_w1, -Missing_w2)
+bhrc_database <- bhrc_database %>%
+    select(-ExecDisf_p10, -Income_others, -Birth_preg_dur, -gestagec, -birthweight, -Birth_premature, -Birth_delivery, -gsmoke_levc, -gdrink_levc, -breastf_levc, -prematurity_levc, -Maternal_DIAG_ANY, -tSDQ_Emo, -tSDQ_Con, -tSDQ_Hyp, -tSDQ_Peer, -tSDQ_Prosoc, -tSDQ_Impact, -Missing_w1, -Missing_w2, -tSDQ_1:-t1impact)
 
 # Columns 68 to 125 - parent substance use 
-test_database <- test_database %>%
+bhrc_database <- bhrc_database %>%
     select(-p_alcohol_age:-p_amphet_year)
 
 # Columns not being used
-test_database <- test_database %>%
+bhrc_database <- bhrc_database %>%
     select(-wm_fl, -ic_fl, -tp_fl, -ef_fl)
 
 ```
