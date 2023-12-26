@@ -21,6 +21,7 @@ library(readxl)
 library(dplyr)
 library(knitr)
 library(sjPlot)
+library(table1)
 
 # BHRC Dictionary
 bhrc_dictionary <- read_excel("data/bhrc_dictionary.xlsx")
@@ -34,6 +35,9 @@ test_database_mfq <- readRDS("data/Loneliness_Depression_data.Rds")
 ## Replacing missing MFQ data
 
 ```{r}
+## Selecting wave==2
+test_database_wave2 <- test_database[test_database$wave == "2", ]
+
 ## Selecting wave==3 (n=2511)
 test_database <- test_database[test_database$wave == "3", ]
 
@@ -46,8 +50,7 @@ head(
 
 # Selecting wave==3 (n=2511)
 test_database_mfq <- test_database_mfq[test_database_mfq$wave == "3", ]
-test_database_mfq <- test_database_mfq %>%
-  select(ident, p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13)
+ 
 test_database <- test_database %>%
   select(-p_mfq1, -p_mfq2, -p_mfq3, -p_mfq4, -p_mfq5, -p_mfq6, -p_mfq7, -p_mfq8, -p_mfq9, -p_mfq10, -p_mfq11, -p_mfq12, -p_mfq13, -p_mfqtot)
 
@@ -213,4 +216,160 @@ bhrc_database <- bhrc_database %>%
 bhrc_database <- bhrc_database %>%
     select(-wm_fl, -ic_fl, -tp_fl, -ef_fl)
 
+```
+
+## Descriptives
+
+### Diagnoses (wave2 and wave3)
+
+```{r}
+# Diagnostic - wave==2
+test_database_wave2 <- test_database_wave2 %>%
+  select(Gender, DIAG_ANY, DIAG_SEP_ANX, DIAG_SPEC_PHOB, DIAG_SOC_PHOB, DIAG_PANIC, DIAG_AGORAPHOB, DIAG_PTSD, DIAG_OCD, DIAG_GEN_ANX, DIAG_Other_ANX, DIAG_DMDD, DIAG_INHAT, DIAG_DEP, DIAG_MANIA, DIAG_ADHD, DIAG_CD, DIAG_ODD, DIAG_EAT, DIAG_AUTISM, DIAG_TIC, DIAG_PSYCH)
+
+test_database_wave2 <- test_database_wave2 %>% drop_na()
+
+#label(df$renda) <- "Renda mensal"
+#label(df$estcivil) <- "Estado civil"
+
+test_database_wave2$DIAG_ANY <- as_factor(test_database_wave2$DIAG_ANY)
+test_database_wave2$DIAG_SEP_ANX <- factor(test_database_wave2$DIAG_SEP_ANX, levels=c(0,1),
+         labels=c("No", 
+                  "Yes"))
+# Substitua cada variável na lista pelo padrão fornecido
+
+test_database_wave2$DIAG_SPEC_PHOB <- factor(test_database_wave2$DIAG_SPEC_PHOB, levels = c(0, 1),
+                                             labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_SOC_PHOB <- factor(test_database_wave2$DIAG_SOC_PHOB, levels = c(0, 1),
+                                             labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_PANIC <- factor(test_database_wave2$DIAG_PANIC, levels = c(0, 1),
+                                          labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_AGORAPHOB <- factor(test_database_wave2$DIAG_AGORAPHOB, levels = c(0, 1),
+                                              labels = c("No", "Yes"))
+
+# Continue aplicando o padrão para cada variável...
+
+test_database_wave2$DIAG_PTSD <- factor(test_database_wave2$DIAG_PTSD, levels = c(0, 1),
+                                         labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_OCD <- factor(test_database_wave2$DIAG_OCD, levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_GEN_ANX <- factor(test_database_wave2$DIAG_GEN_ANX, levels = c(0, 1),
+                                           labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_Other_ANX <- factor(test_database_wave2$DIAG_Other_ANX, levels = c(0, 1),
+                                             labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_DMDD <- factor(test_database_wave2$DIAG_DMDD, levels = c(0, 1),
+                                         labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_INHAT <- factor(test_database_wave2$DIAG_INHAT, levels = c(0, 1),
+                                          labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_DEP <- factor(test_database_wave2$DIAG_DEP, levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_MANIA <- factor(test_database_wave2$DIAG_MANIA, levels = c(0, 1),
+                                          labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_ADHD <- factor(test_database_wave2$DIAG_ADHD, levels = c(0, 1),
+                                         labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_CD <- factor(test_database_wave2$DIAG_CD, levels = c(0, 1),
+                                       labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_ODD <- factor(test_database_wave2$DIAG_ODD, levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_EAT <- factor(test_database_wave2$DIAG_EAT, levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_AUTISM <- factor(test_database_wave2$DIAG_AUTISM, levels = c(0, 1),
+                                           labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_TIC <- factor(test_database_wave2$DIAG_TIC, levels = c(0, 1),
+                                       labels = c("No", "Yes"))
+
+test_database_wave2$DIAG_PSYCH <- factor(test_database_wave2$DIAG_PSYCH, levels = c(0, 1),
+                                         labels = c("No", "Yes"))
+
+table1(~DIAG_ANY + DIAG_SEP_ANX + DIAG_SPEC_PHOB + DIAG_SOC_PHOB + DIAG_PANIC + DIAG_AGORAPHOB + DIAG_PTSD + DIAG_OCD + DIAG_GEN_ANX + DIAG_Other_ANX + DIAG_DMDD + DIAG_INHAT + DIAG_DEP + DIAG_MANIA + DIAG_ADHD + DIAG_CD + DIAG_ODD + DIAG_EAT + DIAG_AUTISM + DIAG_TIC +  DIAG_PSYCH | Gender, data = test_database_wave2)
+
+# Diagnostic - wave==3
+test_database_wave3 <- bhrc_database %>%
+  select(Gender, DIAG_ANY, DIAG_SEP_ANX, DIAG_SPEC_PHOB, DIAG_SOC_PHOB, DIAG_PANIC, DIAG_AGORAPHOB, DIAG_PTSD, DIAG_OCD, DIAG_GEN_ANX, DIAG_Other_ANX, DIAG_DMDD, DIAG_INHAT, DIAG_DEP, DIAG_MANIA, DIAG_ADHD, DIAG_CD, DIAG_ODD, DIAG_EAT, DIAG_AUTISM, DIAG_TIC, DIAG_PSYCH)
+
+test_database_wave3$DIAG_ANY <- as.factor(test_database_wave3$DIAG_ANY)
+test_database_wave3$DIAG_SEP_ANX <- factor(test_database_wave3$DIAG_SEP_ANX, levels=c(0, 1),
+         labels=c("No", "Yes"))
+
+# Substitua cada variável na lista pelo padrão fornecido
+
+test_database_wave3$DIAG_SPEC_PHOB <- factor(test_database_wave3$DIAG_SPEC_PHOB, levels = c(0, 1),
+                                             labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_SOC_PHOB <- factor(test_database_wave3$DIAG_SOC_PHOB, levels = c(0, 1),
+                                             labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_PANIC <- factor(test_database_wave3$DIAG_PANIC, levels = c(0, 1),
+                                          labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_AGORAPHOB <- factor(test_database_wave3$DIAG_AGORAPHOB, levels = c(0, 1),
+                                              labels = c("No", "Yes"))
+
+# Continue aplicando o padrão para cada variável...
+
+test_database_wave3$DIAG_PTSD <- factor(test_database_wave3$DIAG_PTSD, levels = c(0, 1),
+                                         labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_OCD <- factor(test_database_wave3$DIAG_OCD, levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_GEN_ANX <- factor(test_database_wave3$DIAG_GEN_ANX, levels = c(0, 1),
+                                           labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_Other_ANX <- factor(test_database_wave3$DIAG_Other_ANX, levels = c(0, 1),
+                                             labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_DMDD <- factor(test_database_wave3$DIAG_DMDD, levels = c(0, 1),
+                                         labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_INHAT <- factor(test_database_wave3$DIAG_INHAT, levels = c(0, 1),
+                                          labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_DEP <- factor(test_database_wave3$DIAG_DEP, levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_MANIA <- factor(test_database_wave3$DIAG_MANIA, levels = c(0, 1),
+                                          labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_ADHD <- factor(test_database_wave3$DIAG_ADHD, levels = c(0, 1),
+                                         labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_CD <- factor(test_database_wave3$DIAG_CD, levels = c(0, 1),
+                                       labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_ODD <- factor(test_database_wave3$DIAG_ODD, levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_EAT <- factor(test_database_wave3$DIAG_EAT, levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_AUTISM <- factor(test_database_wave3$DIAG_AUTISM, levels = c(0, 1),
+                                           labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_TIC <- factor(test_database_wave3$DIAG_TIC, levels = c(0, 1),
+                                       labels = c("No", "Yes"))
+
+test_database_wave3$DIAG_PSYCH <- factor(test_database_wave3$DIAG_PSYCH, levels = c(0, 1),
+                                         labels = c("No", "Yes"))
+
+
+test_database_wave3 <- test_database_wave3 %>% drop_na()
+
+table1(~DIAG_ANY + DIAG_SEP_ANX + DIAG_SPEC_PHOB + DIAG_SOC_PHOB + DIAG_PANIC + DIAG_AGORAPHOB + DIAG_PTSD + DIAG_OCD + DIAG_GEN_ANX + DIAG_Other_ANX + DIAG_DMDD + DIAG_INHAT + DIAG_DEP + DIAG_MANIA + DIAG_ADHD + DIAG_CD + DIAG_ODD + DIAG_EAT + DIAG_AUTISM + DIAG_TIC +  DIAG_PSYCH | Gender, data = test_database_wave3)
 ```
