@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 # setwd("C:/Users/gabri/Documents/mheg_mfq_clinical")
+#install.packages("ipw")
+#install.packages("twang")
 
 # Loading packages
 library(tidyverse)
@@ -22,14 +24,15 @@ library(dplyr)
 library(knitr)
 library(sjPlot)
 library(table1)
+library(ipw)
+library(twang)
 
 # BHRC Dictionary
 bhrc_dictionary <- read_excel("data/bhrc_dictionary.xlsx")
 
 # Loading .Rds databases
 test_database <- readRDS("data/test_BHRCS_Clinical_Scales_Project_all.Rds")
-test_database_mfq <- readRDS("data/Loneliness_Depression_data.Rds")
-
+test_database_mfq <- readRDS("data/test_Loneliness_Depression_data.Rds")
 ```
 
 ## Replacing missing MFQ data
@@ -50,6 +53,8 @@ head(
 
 # Selecting wave==3 (n=2511)
 test_database_mfq <- test_database_mfq[test_database_mfq$wave == "3", ]
+test_database_mfq <- test_database_mfq %>%
+  select(ident, p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13)
  
 test_database <- test_database %>%
   select(-p_mfq1, -p_mfq2, -p_mfq3, -p_mfq4, -p_mfq5, -p_mfq6, -p_mfq7, -p_mfq8, -p_mfq9, -p_mfq10, -p_mfq11, -p_mfq12, -p_mfq13, -p_mfqtot)
@@ -75,10 +80,14 @@ colnames(bhrc_database)
 bhrc_database$Gender <- as_factor(bhrc_database$Gender)
 bhrc_database$Selection <- as_factor(bhrc_database$Selection)
 bhrc_database$Site <- as_factor(bhrc_database$Site)
+bhrc_database$Child_race <- as_factor(bhrc_database$Child_race)
+bhrc_database$Child_race_2cat <- as_factor(bhrc_database$Child_race_2cat)
+
 bhrc_database$Age_group_3cat <- as_factor(bhrc_database$Age_group_3cat)
 bhrc_database$Age_group_adult <- as_factor(bhrc_database$Age_group_adult)
 bhrc_database$Age_group_2cat <- as_factor(bhrc_database$Age_group_2cat)
 bhrc_database$minstlevel_4cat <- as_factor(bhrc_database$minstlevel_4cat)
+bhrc_database$SEG <- as_factor(bhrc_database$SEG)
 
 bhrc_database$School_repet <- as_factor(bhrc_database$School_repet)
 bhrc_database$School_exp <- as_factor(bhrc_database$School_exp)
@@ -206,7 +215,7 @@ bhrc_database$Missing_LC <- as_factor(bhrc_database$Missing_LC)
 
 # Dropping empty columns
 bhrc_database <- bhrc_database %>%
-    select(-ExecDisf_p10, -Income_others, -Birth_preg_dur, -gestagec, -birthweight, -Birth_premature, -Birth_delivery, -gsmoke_levc, -gdrink_levc, -breastf_levc, -prematurity_levc, -Maternal_DIAG_ANY, -tSDQ_Emo, -tSDQ_Con, -tSDQ_Hyp, -tSDQ_Peer, -tSDQ_Prosoc, -tSDQ_Impact, -Missing_w1, -Missing_w2, -tSDQ_1:-t1impact)
+    select(-Birth_weight, -ExecDisf_p10, -Income_others, -Birth_preg_dur, -gestagec, -birthweight, -Birth_premature, -Birth_delivery, -gsmoke_levc, -gdrink_levc, -breastf_levc, -prematurity_levc, -Maternal_DIAG_ANY, -tSDQ_Emo, -tSDQ_Con, -tSDQ_Hyp, -tSDQ_Peer, -tSDQ_Prosoc, -tSDQ_Impact, -Missing_w1, -Missing_w2, -tSDQ_1:-t1impact)
 
 # Columns 68 to 125 - parent substance use 
 bhrc_database <- bhrc_database %>%
@@ -372,4 +381,71 @@ test_database_wave3$DIAG_PSYCH <- factor(test_database_wave3$DIAG_PSYCH, levels 
 test_database_wave3 <- test_database_wave3 %>% drop_na()
 
 table1(~DIAG_ANY + DIAG_SEP_ANX + DIAG_SPEC_PHOB + DIAG_SOC_PHOB + DIAG_PANIC + DIAG_AGORAPHOB + DIAG_PTSD + DIAG_OCD + DIAG_GEN_ANX + DIAG_Other_ANX + DIAG_DMDD + DIAG_INHAT + DIAG_DEP + DIAG_MANIA + DIAG_ADHD + DIAG_CD + DIAG_ODD + DIAG_EAT + DIAG_AUTISM + DIAG_TIC +  DIAG_PSYCH | Gender, data = test_database_wave3)
+```
+
+## Missing data - IPW - not working
+
+```{r}
+
+# Geração de pesos de probabilidade inversa; atruibuir pesos para que uma pessoa "Valha" mais que a outra
+# Pesos a pessoas com maior probabilidade de não estarem sendo representadas no banco = aumentar a representatividade para representar alguém que abandonou
+
+# Criar variável de retenção (sim = quem ficou; é o inverso do missing)
+bhrc_database_ipw_mfq <- bhrc_database %>% mutate(attrition_MFQ= case_when(p_mfqtot!="NA" ~ "Yes", TRUE ~ "No"))
+# Inverse probability weight para variável de medida escolhida
+
+# Ordinal, o sim vale mais que o não
+bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq %>% mutate_at(vars("attrition_MFQ"),factor)
+bhrc_database_ipw_mfq$attrition_MFQ <- ordered(bhrc_database_ipw_mfq$attrition_MFQ)
+summary.factor(bhrc_database_ipw_mfq$attrition_MFQ)
+
+## Selecionando variáveis demográficas (predizendo quem vai ficar e sair)
+bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq %>% dplyr::select(subjectid, ident, Age:Site, Child_race:SEG, School_repet:work_bin, minstlevel: Assistance_type, Income_total:abepstrat, attrition_MFQ)
+
+bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq %>% dplyr::select(-minstlevel_4cat, -SEG, -Educ_level_current, -Educ_attainment, -Child_race_2cat)
+
+#Filter to complete data in variable with less complete baseline data
+complete.cases(bhrc_database_ipw_mfq)
+bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq[complete.cases(bhrc_database_ipw_mfq), ]
+
+## Descriptive (!!!!!!!!!) quem não ficou VS quem ficou no estudo
+table1(~ Age + Gender + Selection + Site + Child_race + School_repet +  School_exp + School_drop + School_evasion + School_susp + Studying + Educ_years + work_bin + minstlevel + finstlevel + work + moccupation +  foccupation + Assistance_any + Assistance_type + Income_total + Conviction +  abepscore + abepstrat | attrition_MFQ, data = bhrc_database_ipw_mfq, overall=FALSE)
+
+## Logit regression
+# Usar fit para modelos de regressão
+fit_ipw_mfq <- glm(attrition_MFQ ~ Age + Gender + Selection + Site + Child_race_2cat + Educ_years + minstlevel_4cat + work_bin + Income_total + Conviction +  abepscore + abepstrat, family=binomial(link='logit'), data=bhrc_database_ipw_mfq)
+
+summary(fit_ipw_mfq)
+tab_model(fit_ipw_mfq)
+# Estimate está em log odds, para saber odds ratio exponenciar
+
+## Predicted
+pw_mfq <- predict(fit_ipw_mfq, type="response")
+# Função para predizer a probabilidade de cada um ficar no estudo
+
+## Invert prediction - quem ficar no estudo mas tinha mais chances de abandonar precisa representar mais nos dados
+ipw_mfq <- 1/pw_mfq
+
+## Add to temporary data set - clicar na tabela para visualizar
+bhrc_database_ipw_mfq <- cbind(bhrc_database_ipw_mfq,ipw_mfq) %>% dplyr::select(ident, ipw_mfq, attrition_MFQ)
+
+### testing - testar se o peso deu certo; deve-se somar todos os pesos no banco das pessoas que ficaram e ver se o resultado dá o mesmo do n inicial
+bhrc_database_ipw_mfq_test<- bhrc_database_ipw_mfq %>% filter(attrition_MFQ=="Yes")
+sum(bhrc_database_ipw_mfq_test$ipw_mfq)  #should be = x (complete variables at baseline)
+```
+
+```{r}
+
+bhrc_database_ipw_mfq <- na.omit(bhrc_database_ipw_mfq)
+# Pacote ipw
+weights_ipwpoint <- ipwpoint(
+  exposure = attrition_MFQ,
+  family = "binomial",  # The treatment is binary
+  link = "logit",
+  denominator = ~ Age + Gender + Selection + Site + Educ_years + minstlevel_4cat + work_bin + Income_total + Conviction +  abepscore + abepstrat,
+  data = bhrc_database_ipw_mfq
+)
+
+# They're the same!
+head(weights_ipwpoint$ipw.weights)
 ```
