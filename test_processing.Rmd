@@ -15,6 +15,8 @@ knitr::opts_chunk$set(echo = TRUE)
 # setwd("C:/Users/gabri/Documents/mheg_mfq_clinical")
 #install.packages("ipw")
 #install.packages("twang")
+#install.packages("mice")
+#install.packages("WeightIt")
 
 # Loading packages
 library(tidyverse)
@@ -25,7 +27,8 @@ library(knitr)
 library(sjPlot)
 library(table1)
 library(ipw)
-library(twang)
+library(mice)
+library(WeightIt)
 
 # BHRC Dictionary
 bhrc_dictionary <- read_excel("data/bhrc_dictionary.xlsx")
@@ -38,6 +41,9 @@ test_database_mfq <- readRDS("data/test_Loneliness_Depression_data.Rds")
 ## Replacing missing MFQ data
 
 ```{r}
+## Selecting wave==1
+test_database_wave1 <- test_database[test_database$wave == "1", ]
+
 ## Selecting wave==2
 test_database_wave2 <- test_database[test_database$wave == "2", ]
 
@@ -68,6 +74,38 @@ bhrc_database <- bhrc_database |>
   mutate(p_mfqtot = sum(c(p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13)))
 
 # SCARED, SDQ, CBCL are fine
+```
+
+## Baseline characteristics
+
+```{r}
+test_database_wave1 <- test_database_wave1 %>%
+  select(subjectid:abepstrat)
+
+test_database_wave1 <- test_database_wave1 %>%
+  select(-Sampling_weight, -Age_group_3cat, -Age_group_adult, -Age_group_2cat, -School_repet:-School_susp, -work_bin, -NEET_15, -Educ_years, -IQ_resid:-BMI, -work, -Assistance_amount, -Assistance_cash_transfer, -reg39b, -Income_others, -Birth_preg_dur:-prematurity_levc)
+
+test_database_wave1$Gender <- as_factor(test_database_wave1$Gender)
+test_database_wave1$Selection <- as_factor(test_database_wave1$Selection)
+test_database_wave1$Site <- as_factor(test_database_wave1$Site)
+test_database_wave1$Child_race <- as_factor(test_database_wave1$Child_race)
+test_database_wave1$Child_race_2cat <- as_factor(test_database_wave1$Child_race_2cat)
+test_database_wave1$minstlevel_4cat <- as_factor(test_database_wave1$minstlevel_4cat)
+test_database_wave1$SEG <- as_factor(test_database_wave1$SEG)
+test_database_wave1$Studying <- as_factor(test_database_wave1$Studying)
+test_database_wave1$Educ_level_current <- as_factor(test_database_wave1$Educ_level_current)
+test_database_wave1$Educ_attainment <- as_factor(test_database_wave1$Educ_attainment)
+test_database_wave1$NEET_all <- as_factor(test_database_wave1$NEET_all)
+test_database_wave1$instlevel <- as_factor(test_database_wave1$instlevel)
+test_database_wave1$minstlevel <- as_factor(test_database_wave1$minstlevel)
+test_database_wave1$finstlevel <- as_factor(test_database_wave1$finstlevel)
+test_database_wave1$moccupation <- as_factor(test_database_wave1$moccupation)
+test_database_wave1$foccupation <- as_factor(test_database_wave1$foccupation)
+test_database_wave1$Assistance_any <- as_factor(test_database_wave1$Assistance_any)
+test_database_wave1$Assistance_type <- as_factor(test_database_wave1$Assistance_type)
+test_database_wave1$Conviction <- as_factor(test_database_wave1$Conviction)
+test_database_wave1$Maternal_DIAG_ANY <- as_factor(test_database_wave1$Maternal_DIAG_ANY)
+test_database_wave1$abepstrat <- as_factor(test_database_wave1$abepstrat)
 ```
 
 ## Manipulating database
@@ -227,9 +265,7 @@ bhrc_database <- bhrc_database %>%
 
 ```
 
-## Descriptives
-
-### Diagnoses (wave2 and wave3)
+### Descriptive - diagnoses (wave2 and wave3)
 
 ```{r}
 # Diagnostic - wave==2
@@ -383,14 +419,15 @@ test_database_wave3 <- test_database_wave3 %>% drop_na()
 table1(~DIAG_ANY + DIAG_SEP_ANX + DIAG_SPEC_PHOB + DIAG_SOC_PHOB + DIAG_PANIC + DIAG_AGORAPHOB + DIAG_PTSD + DIAG_OCD + DIAG_GEN_ANX + DIAG_Other_ANX + DIAG_DMDD + DIAG_INHAT + DIAG_DEP + DIAG_MANIA + DIAG_ADHD + DIAG_CD + DIAG_ODD + DIAG_EAT + DIAG_AUTISM + DIAG_TIC +  DIAG_PSYCH | Gender, data = test_database_wave3)
 ```
 
-## Missing data - IPW - not working
+## IPW for missing data
+
+### Setting up data
 
 ```{r}
 
-# Geração de pesos de probabilidade inversa; atruibuir pesos para que uma pessoa "Valha" mais que a outra
-# Pesos a pessoas com maior probabilidade de não estarem sendo representadas no banco = aumentar a representatividade para representar alguém que abandonou
+# Geração de pesos de probabilidade inversa = pesos a pessoas com maior probabilidade de não estarem sendo representadas no banco = aumenta a representatividade da amostra
 
-# Criar variável de retenção (sim = quem ficou; é o inverso do missing)
+# Variável de retenção (sim = quem ficou; é o inverso do missing)
 bhrc_database_ipw_mfq <- bhrc_database %>% mutate(attrition_MFQ= case_when(p_mfqtot!="NA" ~ "Yes", TRUE ~ "No"))
 # Inverse probability weight para variável de medida escolhida
 
@@ -399,21 +436,29 @@ bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq %>% mutate_at(vars("attrition_MFQ
 bhrc_database_ipw_mfq$attrition_MFQ <- ordered(bhrc_database_ipw_mfq$attrition_MFQ)
 summary.factor(bhrc_database_ipw_mfq$attrition_MFQ)
 
-## Selecionando variáveis demográficas (predizendo quem vai ficar e sair)
-bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq %>% dplyr::select(subjectid, ident, Age:Site, Child_race:SEG, School_repet:work_bin, minstlevel: Assistance_type, Income_total:abepstrat, attrition_MFQ)
+bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq %>%
+  select(ident, attrition_MFQ)
 
-bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq %>% dplyr::select(-minstlevel_4cat, -SEG, -Educ_level_current, -Educ_attainment, -Child_race_2cat)
+bhrc_database_ipw_mfq <- left_join(bhrc_database_ipw_mfq, test_database_wave1, by="ident")
 
-#Filter to complete data in variable with less complete baseline data
-complete.cases(bhrc_database_ipw_mfq)
-bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq[complete.cases(bhrc_database_ipw_mfq), ]
+# Excluindo variáveis com muitos missings ou não necessários
+bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq %>%
+  select(-instlevel:-finstlevel, -foccupation, -Income_mother, -Income_father, -Conviction, -abepstrat, -Studying)
 
-## Descriptive (!!!!!!!!!) quem não ficou VS quem ficou no estudo
-table1(~ Age + Gender + Selection + Site + Child_race + School_repet +  School_exp + School_drop + School_evasion + School_susp + Studying + Educ_years + work_bin + minstlevel + finstlevel + work + moccupation +  foccupation + Assistance_any + Assistance_type + Income_total + Conviction +  abepscore + abepstrat | attrition_MFQ, data = bhrc_database_ipw_mfq, overall=FALSE)
+# Filter to complete data in variable with less complete baseline data
+test_bhrc_database_ipw_mfq <- bhrc_database_ipw_mfq[complete.cases(bhrc_database_ipw_mfq), ]
+summary.factor(test_bhrc_database_ipw_mfq$attrition_MFQ)
 
+## Descriptive (!!!!!!!!!) quem não ficou VS quem ficou no estudo, com base no baseline
+table1(~ Age + Gender + Selection + Site + Child_race + Child_race_2cat + minstlevel_4cat + SEG + Birth_weight + Educ_level_current + Educ_attainment + NEET_all + moccupation + Assistance_any + Assistance_type + Income_total + Maternal_DIAG_ANY +  abepscore | attrition_MFQ, data = test_bhrc_database_ipw_mfq, overall=FALSE)
+```
+
+### NOT WORKING - Regression and IPW (código DCG)
+
+```{r}
 ## Logit regression
-# Usar fit para modelos de regressão
-fit_ipw_mfq <- glm(attrition_MFQ ~ Age + Gender + Selection + Site + Child_race_2cat + Educ_years + minstlevel_4cat + work_bin + Income_total + Conviction +  abepscore + abepstrat, family=binomial(link='logit'), data=bhrc_database_ipw_mfq)
+# As outras variáveis dão erro no modelo...
+fit_ipw_mfq <- glm(attrition_MFQ ~ Age + Gender + Selection + Site + Child_race + minstlevel_4cat + SEG + Birth_weight + moccupation + Assistance_any + Income_total + Maternal_DIAG_ANY + abepscore, family=binomial(link='logit'), data=test_bhrc_database_ipw_mfq)
 
 summary(fit_ipw_mfq)
 tab_model(fit_ipw_mfq)
@@ -427,25 +472,303 @@ pw_mfq <- predict(fit_ipw_mfq, type="response")
 ipw_mfq <- 1/pw_mfq
 
 ## Add to temporary data set - clicar na tabela para visualizar
-bhrc_database_ipw_mfq <- cbind(bhrc_database_ipw_mfq,ipw_mfq) %>% dplyr::select(ident, ipw_mfq, attrition_MFQ)
+bhrc_database_ipw_mfq <- cbind(test_bhrc_database_ipw_mfq,ipw_mfq) %>% dplyr::select(subjectid, ipw_mfq, attrition_MFQ)
 
-### testing - testar se o peso deu certo; deve-se somar todos os pesos no banco das pessoas que ficaram e ver se o resultado dá o mesmo do n inicial
+### Testar se o peso deu certo - deve-se somar todos os pesos no banco das pessoas que ficaram e ver se o resultado dá o mesmo do n inicial
 bhrc_database_ipw_mfq_test<- bhrc_database_ipw_mfq %>% filter(attrition_MFQ=="Yes")
-sum(bhrc_database_ipw_mfq_test$ipw_mfq)  #should be = x (complete variables at baseline)
+sum(bhrc_database_ipw_mfq_test$ipw_mfq)  
+#Should be = 1991 (complete variables at baseline), but is 4762.633
 ```
 
+### WORKING - WeightIt package
+
 ```{r}
+weights_weightit <- weightit(attrition_MFQ ~ Age + Gender + Selection + Site + Child_race + minstlevel_4cat + SEG + Birth_weight + moccupation + Assistance_any + Income_total + Maternal_DIAG_ANY + abepscore,  # Model net use with confounders
+                             data = test_bhrc_database_ipw_mfq, 
+                             estimand = "ATE",  # Find the ATE
+                             method = "ps")  # Build weights with propensity scores
 
-bhrc_database_ipw_mfq <- na.omit(bhrc_database_ipw_mfq)
-# Pacote ipw
-weights_ipwpoint <- ipwpoint(
-  exposure = attrition_MFQ,
-  family = "binomial",  # The treatment is binary
-  link = "logit",
-  denominator = ~ Age + Gender + Selection + Site + Educ_years + minstlevel_4cat + work_bin + Income_total + Conviction +  abepscore + abepstrat,
-  data = bhrc_database_ipw_mfq
-)
+weights_weightit
+head(weights_weightit$weights)
+test_bhrc_database_ipw_mfq$ipw <- weights_weightit$weights
 
-# They're the same!
-head(weights_ipwpoint$ipw.weights)
+### Testar se o peso deu certo - deve-se somar todos os pesos no banco das pessoas que ficaram e ver se o resultado dá o mesmo do n inicial
+bhrc_database_ipw_mfq_test2<- test_bhrc_database_ipw_mfq %>% filter(attrition_MFQ=="Yes")
+sum(bhrc_database_ipw_mfq_test2$ipw)
+
+#Should be = 1991 (complete variables at baseline), and is 1991.336
+```
+
+## Descriptives
+
+### Diagnose x characteristics (wave==3)
+
+```{r}
+# Linhas: variáveis sociodemograficas da onda 2, diagnóstico materno do baseline, escore somado da MFQ, diagnósticos prevalentes
+# Colunas: Nenhum diagóstico, diagnóstico de depressão, e qualquer diagnóstico (DIAG_ANY). Tem que construir essa variavel.
+
+# Combining Maternal diagnose with wave==3 data
+temp_database <- test_database_wave1 %>% select(ident, Maternal_DIAG_ANY)
+bhrc_database <- left_join(bhrc_database, temp_database, by="ident")
+
+# Combining DIAG_PANIC and DIAG_AGORAPHOBIA
+bhrc_database$DIAG_PANIC_AGORAPHOB <- ifelse(bhrc_database$DIAG_PANIC == 1 | bhrc_database$DIAG_AGORAPHOB == 1, 1, 0)
+
+# DIAG_TYPE
+bhrc_database <- bhrc_database %>%
+  mutate(DIAG_TYPE = case_when(
+    DIAG_ANY == 'No' ~ 0,
+    DIAG_ANY == 'Yes' & DIAG_DEP == 1 ~ 1,
+    DIAG_ANY == 'Yes' & DIAG_DEP == 0 ~ 2,
+    TRUE ~ 3
+  ))
+
+# Convertendo para fator e adicionando labels à variável DIAG_TYPE
+bhrc_database$DIAG_TYPE <- factor(bhrc_database$DIAG_TYPE, levels = c(0, 1, 2, 3), labels = c("Nenhum diagnóstico", "Possui diagnóstico, incluindo depressão", "Possui diagnóstico, sem depressão", "Sem dados"))
+
+# TABELA DESCRITIVA
+# Variáveis demográficas úteis: Age, Gender, Selection, Site, Child_race, SEG, Studying, work, instlevel, minstlevel_4cat, finstlevel, moccupation, foccupation, Assistance_any, Assistance_type, Income_total, Conviction, abepscore
+# Diagnósticos com >2% prevalência: DIAG_SOC_PHOB + DIAG_PANIC_AGORAPHOB + DIAG_PTSD + DIAG_GEN_ANX + DIAG_DEP + DIAG_ADHD + DIAG_CD
+
+table1(~Age + Gender + Selection + Site + Child_race + SEG  + abepscore + Studying + work + instlevel + minstlevel_4cat + finstlevel + moccupation + foccupation + Assistance_any + Assistance_type + Income_total + Conviction + Maternal_DIAG_ANY + p_mfqtot + DIAG_SOC_PHOB + DIAG_PANIC_AGORAPHOB + DIAG_PTSD + DIAG_GEN_ANX + DIAG_DEP + DIAG_ADHD + DIAG_CD | DIAG_TYPE, data = bhrc_database)
+```
+
+## EFA
+
+```{r}
+library(psych)
+library(ggcorrplot)
+library(polycor)
+
+# Selecting variables and Transforming to numeric
+EFA_data_MFQ <- bhrc_database %>% dplyr::select(p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13) %>% mutate_all(~as.character(.) %>% as.numeric())
+
+# Substituindo por NA aqueles que responderam 99
+EFA_data_MFQ <- EFA_data_MFQ %>%
+  mutate_at(vars(p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13), 
+            ~ ifelse(. == 99, NA, .))
+EFA_data_MFQ <- EFA_data_MFQ[complete.cases(EFA_data_MFQ[ ,1]),]
+
+# Calculating polychoric matrix
+EFA_data_MFQ_matrix <- psych::mixedCor(EFA_data_MFQ, smooth=TRUE)
+EFA_data_MFQ_poly <- EFA_data_MFQ_matrix$rho
+
+# Plotting polychoric correlation matrix
+ggcorrplot(EFA_data_MFQ_poly)
+
+# How Factorable is our Dataset?
+
+## Bartlett test - p<0.05
+cortest.bartlett(EFA_data_MFQ_poly, n=1626) # p=0
+
+## Kaiser-Meyer-Olkin factor adequacy - MSA must be closer to 1.0 (0 to 1)
+KMO(EFA_data_MFQ_poly) # MSA = 0.96
+
+# Exploring the number of factors using scree plot
+fa.parallel(EFA_data_MFQ_poly, n.obs =1626, fa = "fa", fm="wls") # 1 factor
+
+## EFA based on parallel analysis resutls
+EFA_data_MFQ_poly_2f <- psych::fa(EFA_data_MFQ_poly, nfactors = 1, fm="wls", rotate = "oblimin", np.obs=1626)
+EFA_data_MFQ_poly_2f
+fa.diagram(EFA_data_MFQ_poly_2f)
+```
+
+## CFA
+
+```{r}
+library(lavaan)
+library(semPlot)
+
+## 1 Factor Model
+MFQ_model_1F <- 'General_1F =~ p_mfq1 + p_mfq2 + p_mfq3 + p_mfq4 + p_mfq5 + p_mfq6 + p_mfq7 +  p_mfq8 + p_mfq9 + p_mfq10 + p_mfq11 + p_mfq12 + p_mfq13'
+
+# Fitting the model
+fit_MFQ_1F <- cfa(MFQ_model_1F, data=EFA_data_MFQ, ordered = T, std.lv=T, estimator="WLSMV")
+summary(fit_MFQ_1F,fit.measures=T, standardized=T, rsquare=T)
+
+# Reliability
+semTools::reliability(fit_MFQ_1F)
+
+# Graph
+semPaths(fit_MFQ_1F, "mod", "est", ask=FALSE, layout = "tree3",
+         levels = c(1,2,3,4,5), edge.color = "black", reorder = F, edge.label.cex=1.2,) # Technical representation
+
+# Modification indices
+Mod_Indices_MFQ_model_1F <- modindices(fit_MFQ_1F, sort = TRUE, maximum.number = 10)
+Mod_Indices_MFQ_model_1F[Mod_Indices_MFQ_model_1F$op == "~~",]
+
+## 3 Factor Model
+MFQ_model_3F <- 'Negative_self_ev =~ p_mfq5 +  p_mfq8 +  p_mfq9 + p_mfq10 + p_mfq11 + p_mfq12 + p_mfq13
+Negative_mood =~ p_mfq1 + p_mfq2 + p_mfq6
+Rest_tired_conc =~ p_mfq3 + p_mfq4 + p_mfq7'
+
+# Fitting the model
+fit_MFQ_3F <- cfa(MFQ_model_3F, data=EFA_data_MFQ, ordered = T, std.lv = T, estimator="WLSMV")
+summary(fit_MFQ_3F,fit.measures=T, standardized=T, rsquare=T)
+
+# Modification indices
+Mod_Indices_MFQ_3F <- modindices(fit_MFQ_3F, sort = TRUE, maximum.number = 10)
+Mod_Indices_MFQ_3F[Mod_Indices_MFQ_3F$op == "~~",]
+
+#Reliability
+semTools::reliability(fit_MFQ_3F)
+
+##Graph
+semPaths(fit_MFQ_3F, "mod", "est", ask=FALSE, layout = "tree3",
+         levels = c(1,2,3,4,5), edge.color = "black", reorder = F, edge.label.cex=1.2,) 
+
+# Technical representation
+semPaths(fit_MFQ_3F, residuals=F, intercepts = F,sizeMan=6,"std",
+         posCol=c("skyblue3", "red"),
+         #edge.color="skyblue4",
+         edge.label.cex=1.2,layout="circle")
+
+## Bifactor
+MFQ_model_bif <- 'Negative_self_ev =~ p_mfq5 +  p_mfq8 +  p_mfq9 + p_mfq10 + p_mfq11 + p_mfq12 + p_mfq13
+Negative_mood =~ p_mfq1 + p_mfq2 + p_mfq6
+Rest_tired_conc =~ p_mfq3 + p_mfq4 + p_mfq7
+General_bif =~ p_mfq1 + p_mfq2 + p_mfq3 + p_mfq4 + p_mfq5 + p_mfq6 + p_mfq7 +  p_mfq8 + p_mfq9 + p_mfq10 + p_mfq11 + p_mfq12 + p_mfq13'
+
+# Fitting the model
+fit_MFQ_bif <- cfa(MFQ_model_bif, data=EFA_data_MFQ, ordered = T, std.lv = T, estimator="WLSMV")
+summary(fit_MFQ_bif,fit.measures=T, standardized=T, rsquare=T)
+
+# Modification indices
+Mod_Indices_MFQ_bif <- modindices(fit_MFQ_bif, sort = TRUE, maximum.number = 10)
+Mod_Indices_MFQ_bif[Mod_Indices_MFQ_bif$op == "~~",]
+
+#Reliability
+semTools::reliabilityL2(fit_MFQ_bif, General_2nd)
+##Graph
+semPaths(fit_MFQ_bif, "mod", "est", ask=FALSE, layout = "tree3",
+         levels = c(1,2,3,4,5), edge.color = "black", reorder = F, edge.label.cex=1.2) 
+
+# Model comparison
+lavTestLRT(fit_MFQ_1F, fit_MFQ_3F)
+```
+
+## IRT
+
+```{r}
+library(ltm)
+library(mirt)
+library(ggpubr)
+
+irt_mfq_total <- EFA_data_MFQ
+
+# Total scores
+items_mfq <- list(MFQ_Total=c("p_mfq1","p_mfq2","p_mfq3","p_mfq4","p_mfq5", "p_mfq6","p_mfq7","p_mfq8","p_mfq9","p_mfq10","p_mfq11","p_mfq12","p_mfq13"))
+score_mfq <- scoreItems(items_mfq,irt_mfq_total,totals = T) 
+irt_mfq_total$MFQ_Total<-as.numeric(score_mfq$scores[,1])
+hist(irt_mfq_total$MFQ_Total)
+
+bhrc_database$p_mfqtot_no99 <- irt_mfq_total$MFQ_Total
+
+# IRT
+## Graded Response Model - unidimensional
+
+irt_mfq <- irt_mfq_total %>% select(p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13) %>% mutate_all(~as.character(.) %>% as.numeric())
+MFQ_1F_grm <- grm(irt_mfq)
+plot(MFQ_1F_grm, type = "IIC", items = 0, main="MFQ general information curve", ylab = "Information", xlab = "Depression latent trait")
+
+# Characteristic of the instrument
+par(mfrow = c(3, 3))
+plot(MFQ_1F_grm,type="ICC")
+par(mfrow = c(1, 1))
+
+# Information  of the instrument
+plot(MFQ_1F_grm,type="IIC", main="MFQ item information curve", ylab = "Information", xlab = "Depression latent trait")
+
+#Psych IRT (Reliability by area of the latent trait)
+irt.fa(irt_mfq)
+
+#Loadings
+summary(MFQ_1F_grm) #AIC e BIC
+
+# coefficients
+coef(MFQ_1F_grm)
+
+## IRT score
+MFQ_1F_grm_fs<-factor.scores.grm(MFQ_1F_grm, resp.patterns = irt_mfq)
+MFQ_1F_grm_fs<-MFQ_1F_grm_fs$score.dat$z1
+MFQ_1F_grm_fs<-as.data.frame(MFQ_1F_grm_fs)
+irt_mfq$MFQ_1F_fs<-MFQ_1F_grm_fs[,1]
+hist(irt_mfq$MFQ_1F_fs)
+summary(irt_mfq$MFQ_1F_fs)
+
+# Combine total and IRT-based factor score
+mfq_total_uni <- cbind(irt_mfq_total, irt_mfq) %>% dplyr::select(MFQ_Total, MFQ_1F_fs)
+# Correlation between total and factor scores
+plot(mfq_total_uni$MFQ_Total,mfq_total_uni$MFQ_1F_fs, main="Correlation between MFQ total and IRT-based factor score", ylab = "MFQ factor score", xlab = "MFQ total score")
+
+ggscatter(mfq_total_uni, x = "MFQ_Total", y = "MFQ_1F_fs", 
+          add = "reg.line", conf.int = T, 
+          cor.coef = T, cor.method = "pearson",
+          xlab = "MFQ total score", ylab = "MFQ factor score", 
+          main="Correlation between MFQ total and IRT-based factor score")
+```
+
+## ROC curves
+
+```{r}
+#install.packages("pROC")
+library(pROC)
+
+# Selecting variables and transforming to numeric
+mfq_roc <- bhrc_database %>% dplyr::select(ident, DIAG_ANY, DIAG_SOC_PHOB, DIAG_PANIC_AGORAPHOB, DIAG_PTSD, DIAG_GEN_ANX, DIAG_DEP, DIAG_ADHD, DIAG_CD, p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13)
+
+# Substituindo por NA aqueles que responderam 99
+mfq_roc <- mfq_roc %>%
+  mutate_at(vars(p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13), 
+            ~ ifelse(. == 99, NA, .))
+mfq_roc <- mfq_roc[complete.cases(mfq_roc), ]
+mfq_roc$p_mfqtot_no99 <- rowSums(mfq_roc[, c("p_mfq1", "p_mfq2", "p_mfq3", "p_mfq4", "p_mfq5", "p_mfq6", "p_mfq7", "p_mfq8", "p_mfq9", "p_mfq10", "p_mfq11", "p_mfq12", "p_mfq13")], na.rm = TRUE)
+
+# DIAG_ANY
+roc_ANY <- roc(mfq_roc$DIAG_ANY, mfq_roc$p_mfqtot_no99)
+plot(roc_ANY, main = "Curva ROC", col = "blue", lwd = 2, print.thres=T) #Ponto de corte = 0.7
+auc_ANY <- auc(roc_ANY)
+cat("Área Sob a Curva (AUC):", auc_ANY, "\n")
+
+# DIAG_DEP
+roc_DEP <- roc(mfq_roc$DIAG_DEP, mfq_roc$p_mfqtot_no99)
+plot(roc_DEP, main = "Curva ROC - DEP", col = "blue", lwd = 2, print.thres=T)
+auc_DEP <- auc(roc(mfq_roc$DIAG_DEP, mfq_roc$p_mfqtot_no99))
+cat("Área Sob a Curva (AUC) para DEP:", auc_DEP, "\n")
+
+#DIAG_SOC_PHOBIA
+roc_SOC_PHOB <- roc(mfq_roc$DIAG_SOC_PHOB, mfq_roc$p_mfqtot_no99)
+plot(roc_SOC_PHOB, main = "Curva ROC", col = "blue", lwd = 2, print.thres=T)
+auc_SOC_PHOB <- auc(roc(mfq_roc$DIAG_SOC_PHOB, mfq_roc$p_mfqtot_no99))
+cat("Área Sob a Curva (AUC) para SOC_PHOB:", auc_SOC_PHOB, "\n")
+
+# DIAG_PANIC_AGORAPHOB
+roc_PANIC_AGORAPHOB <- roc(mfq_roc$DIAG_PANIC_AGORAPHOB, mfq_roc$p_mfqtot_no99)
+plot(roc_PANIC_AGORAPHOB, main = "Curva ROC - PANIC_AGORAPHOB", col = "blue", lwd = 2, print.thres=T)
+auc_PANIC_AGORAPHOB <- auc(roc(mfq_roc$DIAG_PANIC_AGORAPHOB, mfq_roc$p_mfqtot_no99))
+cat("Área Sob a Curva (AUC) para PANIC_AGORAPHOB:", auc_PANIC_AGORAPHOB, "\n")
+
+# DIAG_PTSD
+roc_PTSD <- roc(mfq_roc$DIAG_PTSD, mfq_roc$p_mfqtot_no99)
+plot(roc_PTSD, main = "Curva ROC - PTSD", col = "blue", lwd = 2, print.thres=T)
+auc_PTSD <- auc(roc(mfq_roc$DIAG_PTSD, mfq_roc$p_mfqtot_no99))
+cat("Área Sob a Curva (AUC) para PTSD:", auc_PTSD, "\n")
+
+# DIAG_GEN_ANX
+roc_GEN_ANX <- roc(mfq_roc$DIAG_GEN_ANX, mfq_roc$p_mfqtot_no99)
+plot(roc_GEN_ANX, main = "Curva ROC - GEN_ANX", col = "blue", lwd = 2, print.thres=T, print.thres=T)
+auc_GEN_ANX <- auc(roc(mfq_roc$DIAG_GEN_ANX, mfq_roc$p_mfqtot_no99))
+cat("Área Sob a Curva (AUC) para GEN_ANX:", auc_GEN_ANX, "\n")
+
+# DIAG_ADHD
+roc_ADHD <- roc(mfq_roc$DIAG_ADHD, mfq_roc$p_mfqtot_no99)
+plot(roc_ADHD, main = "Curva ROC - ADHD", col = "blue", lwd = 2, print.thres=T)
+auc_ADHD <- auc(roc(mfq_roc$DIAG_ADHD, mfq_roc$p_mfqtot_no99))
+cat("Área Sob a Curva (AUC) para ADHD:", auc_ADHD, "\n")
+
+# DIAG_CD
+roc_CD <- roc(mfq_roc$DIAG_CD, mfq_roc$p_mfqtot_no99)
+plot(roc_CD, main = "Curva ROC - CD", col = "blue", lwd = 2, print.thres=T)
+auc_CD <- auc(roc(mfq_roc$DIAG_CD, mfq_roc$p_mfqtot_no99))
+cat("Área Sob a Curva (AUC) para CD:", auc_CD, "\n")
 ```
