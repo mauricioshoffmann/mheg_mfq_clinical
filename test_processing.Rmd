@@ -265,7 +265,7 @@ bhrc_database <- bhrc_database %>%
 
 ```
 
-### Descriptive - diagnoses (wave2 and wave3)
+### Diagnoses (wave==2 and wave==3)
 
 ```{r}
 # Diagnostic - wave==2
@@ -514,6 +514,12 @@ bhrc_database <- left_join(bhrc_database, temp_database, by="ident")
 # Combining DIAG_PANIC and DIAG_AGORAPHOBIA
 bhrc_database$DIAG_PANIC_AGORAPHOB <- ifelse(bhrc_database$DIAG_PANIC == 1 | bhrc_database$DIAG_AGORAPHOB == 1, 1, 0)
 
+# Criar a variável p_mfqtot_no99
+bhrc_database$p_mfqtot_no99 <- rowSums(replace(bhrc_database[, c("p_mfq1", "p_mfq2", "p_mfq3", "p_mfq4", "p_mfq5", "p_mfq6", "p_mfq7", "p_mfq8", "p_mfq9", "p_mfq10", "p_mfq11", "p_mfq12", "p_mfq13")], bhrc_database[, c("p_mfq1", "p_mfq2", "p_mfq3", "p_mfq4", "p_mfq5", "p_mfq6", "p_mfq7", "p_mfq8", "p_mfq9", "p_mfq10", "p_mfq11", "p_mfq12", "p_mfq13")] == 99, 0))
+
+# Substituir NA quando todas as variáveis são 99
+bhrc_database$p_mfqtot_no99[apply(bhrc_database[, c("p_mfq1", "p_mfq2", "p_mfq3", "p_mfq4", "p_mfq5", "p_mfq6", "p_mfq7", "p_mfq8", "p_mfq9", "p_mfq10", "p_mfq11", "p_mfq12", "p_mfq13")], 1, function(x) all(x == 99))] <- NA
+
 # DIAG_TYPE
 bhrc_database <- bhrc_database %>%
   mutate(DIAG_TYPE = case_when(
@@ -530,7 +536,10 @@ bhrc_database$DIAG_TYPE <- factor(bhrc_database$DIAG_TYPE, levels = c(0, 1, 2, 3
 # Variáveis demográficas úteis: Age, Gender, Selection, Site, Child_race, SEG, Studying, work, instlevel, minstlevel_4cat, finstlevel, moccupation, foccupation, Assistance_any, Assistance_type, Income_total, Conviction, abepscore
 # Diagnósticos com >2% prevalência: DIAG_SOC_PHOB + DIAG_PANIC_AGORAPHOB + DIAG_PTSD + DIAG_GEN_ANX + DIAG_DEP + DIAG_ADHD + DIAG_CD
 
-table1(~Age + Gender + Selection + Site + Child_race + SEG  + abepscore + Studying + work + instlevel + minstlevel_4cat + finstlevel + moccupation + foccupation + Assistance_any + Assistance_type + Income_total + Conviction + Maternal_DIAG_ANY + p_mfqtot + DIAG_SOC_PHOB + DIAG_PANIC_AGORAPHOB + DIAG_PTSD + DIAG_GEN_ANX + DIAG_DEP + DIAG_ADHD + DIAG_CD | DIAG_TYPE, data = bhrc_database)
+label(bhrc_database$p_mfqtot) <- "Total MFQ (com 99)"
+label(bhrc_database$p_mfqtot_no99) <- "Total MFQ (sem 99)"
+
+table1(~Age + Gender + Selection + Site + Child_race + SEG  + abepscore + Studying + work + instlevel + minstlevel_4cat + finstlevel + moccupation + foccupation + Assistance_any + Assistance_type + Income_total + Conviction + Maternal_DIAG_ANY + p_mfqtot + p_mfqtot_no99 + DIAG_SOC_PHOB + DIAG_PANIC_AGORAPHOB + DIAG_PTSD + DIAG_GEN_ANX + DIAG_DEP + DIAG_ADHD + DIAG_CD | DIAG_TYPE, data = bhrc_database)
 ```
 
 ## EFA
@@ -594,8 +603,8 @@ semPaths(fit_MFQ_1F, "mod", "est", ask=FALSE, layout = "tree3",
          levels = c(1,2,3,4,5), edge.color = "black", reorder = F, edge.label.cex=1.2,) # Technical representation
 
 # Modification indices
-Mod_Indices_MFQ_model_1F <- modindices(fit_MFQ_1F, sort = TRUE, maximum.number = 10)
-Mod_Indices_MFQ_model_1F[Mod_Indices_MFQ_model_1F$op == "~~",]
+#Mod_Indices_MFQ_model_1F <- modindices(fit_MFQ_1F, sort = TRUE, maximum.number = 10)
+#Mod_Indices_MFQ_model_1F[Mod_Indices_MFQ_model_1F$op == "~~",]
 
 ## 3 Factor Model
 MFQ_model_3F <- 'Negative_self_ev =~ p_mfq5 +  p_mfq8 +  p_mfq9 + p_mfq10 + p_mfq11 + p_mfq12 + p_mfq13
@@ -607,8 +616,8 @@ fit_MFQ_3F <- cfa(MFQ_model_3F, data=EFA_data_MFQ, ordered = T, std.lv = T, esti
 summary(fit_MFQ_3F,fit.measures=T, standardized=T, rsquare=T)
 
 # Modification indices
-Mod_Indices_MFQ_3F <- modindices(fit_MFQ_3F, sort = TRUE, maximum.number = 10)
-Mod_Indices_MFQ_3F[Mod_Indices_MFQ_3F$op == "~~",]
+#Mod_Indices_MFQ_3F <- modindices(fit_MFQ_3F, sort = TRUE, maximum.number = 10)
+#Mod_Indices_MFQ_3F[Mod_Indices_MFQ_3F$op == "~~",]
 
 #Reliability
 semTools::reliability(fit_MFQ_3F)
@@ -634,11 +643,11 @@ fit_MFQ_bif <- cfa(MFQ_model_bif, data=EFA_data_MFQ, ordered = T, std.lv = T, es
 summary(fit_MFQ_bif,fit.measures=T, standardized=T, rsquare=T)
 
 # Modification indices
-Mod_Indices_MFQ_bif <- modindices(fit_MFQ_bif, sort = TRUE, maximum.number = 10)
-Mod_Indices_MFQ_bif[Mod_Indices_MFQ_bif$op == "~~",]
+#Mod_Indices_MFQ_bif <- modindices(fit_MFQ_bif, sort = TRUE, maximum.number = 10)
+#Mod_Indices_MFQ_bif[Mod_Indices_MFQ_bif$op == "~~",]
 
 #Reliability
-semTools::reliabilityL2(fit_MFQ_bif, General_2nd)
+#semTools::reliabilityL2(fit_MFQ_bif, General_2nd)
 ##Graph
 semPaths(fit_MFQ_bif, "mod", "est", ask=FALSE, layout = "tree3",
          levels = c(1,2,3,4,5), edge.color = "black", reorder = F, edge.label.cex=1.2) 
@@ -655,6 +664,7 @@ library(mirt)
 library(ggpubr)
 
 irt_mfq_total <- EFA_data_MFQ
+irt_mfq <- EFA_data_MFQ
 
 # Total scores
 items_mfq <- list(MFQ_Total=c("p_mfq1","p_mfq2","p_mfq3","p_mfq4","p_mfq5", "p_mfq6","p_mfq7","p_mfq8","p_mfq9","p_mfq10","p_mfq11","p_mfq12","p_mfq13"))
@@ -662,12 +672,9 @@ score_mfq <- scoreItems(items_mfq,irt_mfq_total,totals = T)
 irt_mfq_total$MFQ_Total<-as.numeric(score_mfq$scores[,1])
 hist(irt_mfq_total$MFQ_Total)
 
-bhrc_database$p_mfqtot_no99 <- irt_mfq_total$MFQ_Total
-
 # IRT
 ## Graded Response Model - unidimensional
 
-irt_mfq <- irt_mfq_total %>% select(p_mfq1, p_mfq2, p_mfq3, p_mfq4, p_mfq5, p_mfq6, p_mfq7, p_mfq8, p_mfq9, p_mfq10, p_mfq11, p_mfq12, p_mfq13) %>% mutate_all(~as.character(.) %>% as.numeric())
 MFQ_1F_grm <- grm(irt_mfq)
 plot(MFQ_1F_grm, type = "IIC", items = 0, main="MFQ general information curve", ylab = "Information", xlab = "Depression latent trait")
 
@@ -706,6 +713,23 @@ ggscatter(mfq_total_uni, x = "MFQ_Total", y = "MFQ_1F_fs",
           cor.coef = T, cor.method = "pearson",
           xlab = "MFQ total score", ylab = "MFQ factor score", 
           main="Correlation between MFQ total and IRT-based factor score")
+
+## IRT score (em T-score)
+irt_mfq$MFQ_1F_escoreT <- 50 + (irt_mfq$MFQ_1F_fs * 10)
+# Visualizar o histograma do escore T
+hist(irt_mfq$MFQ_1F_escoreT)
+# Resumo estatístico do escore T
+summary(irt_mfq$MFQ_1F_escoreT)
+
+mfq_total_uniT <- cbind(irt_mfq_total, irt_mfq) %>% dplyr::select(MFQ_Total, MFQ_1F_escoreT)
+# Correlation between total and factor scores
+plot(mfq_total_uniT$MFQ_Total,mfq_total_uniT$MFQ_1F_escoreT, main="Correlation between MFQ total and IRT-based factor score", ylab = "MFQ factor T-score", xlab = "MFQ total score")
+
+ggscatter(mfq_total_uniT, x = "MFQ_Total", y = "MFQ_1F_escoreT", 
+          add = "reg.line", conf.int = T, 
+          cor.coef = T, cor.method = "pearson",
+          xlab = "MFQ total score", ylab = "MFQ factor score (T-score)", 
+          main="Correlation between MFQ total and IRT-based factor score")
 ```
 
 ## ROC curves
@@ -726,49 +750,49 @@ mfq_roc$p_mfqtot_no99 <- rowSums(mfq_roc[, c("p_mfq1", "p_mfq2", "p_mfq3", "p_mf
 
 # DIAG_ANY
 roc_ANY <- roc(mfq_roc$DIAG_ANY, mfq_roc$p_mfqtot_no99)
-plot(roc_ANY, main = "Curva ROC", col = "blue", lwd = 2, print.thres=T) #Ponto de corte = 0.7
+plot.roc(roc_ANY, main = "Curva ROC", col = "blue", lwd = 2, print.thres=TRUE, print.auc=TRUE ) #Ponto de corte = 0.7
 auc_ANY <- auc(roc_ANY)
 cat("Área Sob a Curva (AUC):", auc_ANY, "\n")
 
 # DIAG_DEP
 roc_DEP <- roc(mfq_roc$DIAG_DEP, mfq_roc$p_mfqtot_no99)
-plot(roc_DEP, main = "Curva ROC - DEP", col = "blue", lwd = 2, print.thres=T)
+plot.roc(roc_DEP, main = "Curva ROC - DEP", col = "blue", lwd = 2, print.thres=TRUE, print.auc=TRUE )
 auc_DEP <- auc(roc(mfq_roc$DIAG_DEP, mfq_roc$p_mfqtot_no99))
 cat("Área Sob a Curva (AUC) para DEP:", auc_DEP, "\n")
 
 #DIAG_SOC_PHOBIA
 roc_SOC_PHOB <- roc(mfq_roc$DIAG_SOC_PHOB, mfq_roc$p_mfqtot_no99)
-plot(roc_SOC_PHOB, main = "Curva ROC", col = "blue", lwd = 2, print.thres=T)
+plot.roc(roc_SOC_PHOB, main = "Curva ROC", col = "blue", lwd = 2, print.thres=TRUE, print.auc=TRUE )
 auc_SOC_PHOB <- auc(roc(mfq_roc$DIAG_SOC_PHOB, mfq_roc$p_mfqtot_no99))
 cat("Área Sob a Curva (AUC) para SOC_PHOB:", auc_SOC_PHOB, "\n")
 
 # DIAG_PANIC_AGORAPHOB
 roc_PANIC_AGORAPHOB <- roc(mfq_roc$DIAG_PANIC_AGORAPHOB, mfq_roc$p_mfqtot_no99)
-plot(roc_PANIC_AGORAPHOB, main = "Curva ROC - PANIC_AGORAPHOB", col = "blue", lwd = 2, print.thres=T)
+plot.roc(roc_PANIC_AGORAPHOB, main = "Curva ROC - PANIC_AGORAPHOB", col = "blue", lwd = 2, print.thres=TRUE, print.auc=TRUE )
 auc_PANIC_AGORAPHOB <- auc(roc(mfq_roc$DIAG_PANIC_AGORAPHOB, mfq_roc$p_mfqtot_no99))
 cat("Área Sob a Curva (AUC) para PANIC_AGORAPHOB:", auc_PANIC_AGORAPHOB, "\n")
 
 # DIAG_PTSD
 roc_PTSD <- roc(mfq_roc$DIAG_PTSD, mfq_roc$p_mfqtot_no99)
-plot(roc_PTSD, main = "Curva ROC - PTSD", col = "blue", lwd = 2, print.thres=T)
+plot.roc(roc_PTSD, main = "Curva ROC - PTSD", col = "blue", lwd = 2, print.thres=TRUE, print.auc=TRUE )
 auc_PTSD <- auc(roc(mfq_roc$DIAG_PTSD, mfq_roc$p_mfqtot_no99))
 cat("Área Sob a Curva (AUC) para PTSD:", auc_PTSD, "\n")
 
 # DIAG_GEN_ANX
 roc_GEN_ANX <- roc(mfq_roc$DIAG_GEN_ANX, mfq_roc$p_mfqtot_no99)
-plot(roc_GEN_ANX, main = "Curva ROC - GEN_ANX", col = "blue", lwd = 2, print.thres=T, print.thres=T)
+plot.roc(roc_GEN_ANX, main = "Curva ROC - GEN_ANX", col = "blue", lwd = 2, print.thres=TRUE, print.auc=TRUE)
 auc_GEN_ANX <- auc(roc(mfq_roc$DIAG_GEN_ANX, mfq_roc$p_mfqtot_no99))
 cat("Área Sob a Curva (AUC) para GEN_ANX:", auc_GEN_ANX, "\n")
 
 # DIAG_ADHD
 roc_ADHD <- roc(mfq_roc$DIAG_ADHD, mfq_roc$p_mfqtot_no99)
-plot(roc_ADHD, main = "Curva ROC - ADHD", col = "blue", lwd = 2, print.thres=T)
+plot.roc(roc_ADHD, main = "Curva ROC - ADHD", col = "blue", lwd = 2, print.thres=TRUE, print.auc=TRUE )
 auc_ADHD <- auc(roc(mfq_roc$DIAG_ADHD, mfq_roc$p_mfqtot_no99))
 cat("Área Sob a Curva (AUC) para ADHD:", auc_ADHD, "\n")
 
 # DIAG_CD
 roc_CD <- roc(mfq_roc$DIAG_CD, mfq_roc$p_mfqtot_no99)
-plot(roc_CD, main = "Curva ROC - CD", col = "blue", lwd = 2, print.thres=T)
+plot.roc(roc_CD, main = "Curva ROC - CD", col = "blue", lwd = 2, print.thres=TRUE, print.auc=TRUE )
 auc_CD <- auc(roc(mfq_roc$DIAG_CD, mfq_roc$p_mfqtot_no99))
 cat("Área Sob a Curva (AUC) para CD:", auc_CD, "\n")
 ```
