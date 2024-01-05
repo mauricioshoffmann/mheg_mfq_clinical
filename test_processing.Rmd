@@ -3,6 +3,8 @@ title: "Processing BHRC data (test)"
 author: "Gabriele Jobim"
 date: "2023-11-28"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -10,8 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Settings
-
-```{r}
+```{r settings, message=F, warning=F, echo=F}
 # setwd("C:/Users/gabri/Documents/mheg_mfq_clinical")
 #install.packages("ipw")
 #install.packages("twang")
@@ -19,16 +20,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages("WeightIt")
 
 # Loading packages
-library(tidyverse)
-library(ggplot2)
-library(readxl)
-library(dplyr)
-library(knitr)
-library(sjPlot)
-library(table1)
-library(ipw)
-library(mice)
-library(WeightIt)
+library(tidyverse); library(ggplot2); library(readxl); library(dplyr); library(knitr); library(sjPlot); library(table1); library(ipw); library(mice); library(WeightIt)
 
 # BHRC Dictionary
 bhrc_dictionary <- read_excel("data/bhrc_dictionary.xlsx")
@@ -39,8 +31,7 @@ test_database_mfq <- readRDS("data/test_Loneliness_Depression_data.Rds")
 ```
 
 ## Replacing missing MFQ data
-
-```{r}
+```{r Replacing missing MFQ data, message=F, warning=F}
 ## Selecting wave==1
 test_database_wave1 <- test_database[test_database$wave == "1", ]
 
@@ -77,8 +68,7 @@ bhrc_database <- bhrc_database |>
 ```
 
 ## Baseline characteristics
-
-```{r}
+```{r Baseline characteristics, message=F, warning=F}
 test_database_wave1 <- test_database_wave1 %>%
   select(subjectid:abepstrat)
 
@@ -111,8 +101,7 @@ test_database_wave1$abepstrat <- as_factor(test_database_wave1$abepstrat)
 ## Manipulating database
 
 ### Converting into factors
-
-```{r}
+```{r Converting into factors, message=F, warning=F}
 # Converting into factors
 colnames(bhrc_database)
 bhrc_database$Gender <- as_factor(bhrc_database$Gender)
@@ -248,8 +237,7 @@ bhrc_database$Missing_LC <- as_factor(bhrc_database$Missing_LC)
 ```
 
 ### Dropping columns
-
-```{r}
+```{r Dropping columns, message=F, warning=F}
 
 # Dropping empty columns
 bhrc_database <- bhrc_database %>%
@@ -266,8 +254,7 @@ bhrc_database <- bhrc_database %>%
 ```
 
 ### Diagnoses (wave==2 and wave==3)
-
-```{r}
+```{r  Diagnoses, message=F, warning=F}
 # Diagnostic - wave==2
 test_database_wave2 <- test_database_wave2 %>%
   select(Gender, DIAG_ANY, DIAG_SEP_ANX, DIAG_SPEC_PHOB, DIAG_SOC_PHOB, DIAG_PANIC, DIAG_AGORAPHOB, DIAG_PTSD, DIAG_OCD, DIAG_GEN_ANX, DIAG_Other_ANX, DIAG_DMDD, DIAG_INHAT, DIAG_DEP, DIAG_MANIA, DIAG_ADHD, DIAG_CD, DIAG_ODD, DIAG_EAT, DIAG_AUTISM, DIAG_TIC, DIAG_PSYCH)
@@ -420,10 +407,8 @@ table1(~DIAG_ANY + DIAG_SEP_ANX + DIAG_SPEC_PHOB + DIAG_SOC_PHOB + DIAG_PANIC + 
 ```
 
 ## IPW for missing data
-
 ### Setting up data
-
-```{r}
+```{r settings for IPW, message=F, warning=F}
 
 # Geração de pesos de probabilidade inversa = pesos a pessoas com maior probabilidade de não estarem sendo representadas no banco = aumenta a representatividade da amostra
 
@@ -455,7 +440,7 @@ table1(~ Age + Gender + Selection + Site + Child_race + Child_race_2cat + minstl
 
 ### NOT WORKING - Regression and IPW (código DCG)
 
-```{r}
+```{r , message=F, warning=F}
 ## Logit regression
 # As outras variáveis dão erro no modelo...
 fit_ipw_mfq <- glm(attrition_MFQ ~ Age + Gender + Selection + Site + Child_race + minstlevel_4cat + SEG + Birth_weight + moccupation + Assistance_any + Income_total + Maternal_DIAG_ANY + abepscore, family=binomial(link='logit'), data=test_bhrc_database_ipw_mfq)
@@ -482,7 +467,7 @@ sum(bhrc_database_ipw_mfq_test$ipw_mfq)
 
 ### WORKING - WeightIt package
 
-```{r}
+```{r , message=F, warning=F}
 weights_weightit <- weightit(attrition_MFQ ~ Age + Gender + Selection + Site + Child_race + minstlevel_4cat + SEG + Birth_weight + moccupation + Assistance_any + Income_total + Maternal_DIAG_ANY + abepscore,  # Model net use with confounders
                              data = test_bhrc_database_ipw_mfq, 
                              estimand = "ATE",  # Find the ATE
@@ -502,8 +487,7 @@ sum(bhrc_database_ipw_mfq_test2$ipw)
 ## Descriptives
 
 ### Diagnose x characteristics (wave==3)
-
-```{r}
+```{r Diagnose x characteristics, message=F, warning=F}
 # Linhas: variáveis sociodemograficas da onda 2, diagnóstico materno do baseline, escore somado da MFQ, diagnósticos prevalentes
 # Colunas: Nenhum diagóstico, diagnóstico de depressão, e qualquer diagnóstico (DIAG_ANY). Tem que construir essa variavel.
 
@@ -544,7 +528,7 @@ table1(~Age + Gender + Selection + Site + Child_race + SEG  + abepscore + Studyi
 
 ## EFA
 
-```{r}
+```{r , message=F, warning=F}
 library(psych)
 library(ggcorrplot)
 library(polycor)
@@ -584,7 +568,7 @@ fa.diagram(EFA_data_MFQ_poly_2f)
 
 ## CFA
 
-```{r}
+```{r , message=F, warning=F}
 library(lavaan)
 library(semPlot)
 
@@ -658,7 +642,7 @@ lavTestLRT(fit_MFQ_1F, fit_MFQ_3F)
 
 ## IRT
 
-```{r}
+```{r , message=F, warning=F}
 library(ltm)
 library(mirt)
 library(ggpubr)
@@ -733,8 +717,7 @@ ggscatter(mfq_total_uniT, x = "MFQ_Total", y = "MFQ_1F_escoreT",
 ```
 
 ## ROC curves
-
-```{r}
+```{r ROC, message=F, warning=F}
 #install.packages("pROC")
 library(pROC)
 
